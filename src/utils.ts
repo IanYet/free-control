@@ -1,4 +1,4 @@
-import { Camera, Vector2, Vector3 } from 'three'
+import { Camera, Object3D, PerspectiveCamera, Vector2, Vector3 } from 'three'
 
 /**
  *
@@ -22,4 +22,18 @@ export function screen2world(screenPos: Vector2, camera: Camera, depth: number =
 		.applyMatrix4(camera.matrixWorld)
 
 	return pos
+}
+
+
+export function getBufferDepth(camera: PerspectiveCamera, object: Object3D){
+
+	const cameraDir = new Vector3();
+	camera.getWorldDirection(cameraDir);
+	
+	const d = new Vector3()
+			.subVectors(camera.position, object.position)
+			.projectOnVector(cameraDir)
+			.length()
+	const { near: n, far: f } = camera
+	return (f + n - (2 * n * f) / d) / (f - n)
 }

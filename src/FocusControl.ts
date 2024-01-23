@@ -1,5 +1,5 @@
 import { Object3D, PerspectiveCamera, Vector2, Vector3 } from 'three'
-import { screen2world } from './utils'
+import { getBufferDepth, screen2world } from './utils'
 
 export class FocusControl {
 	enabled: boolean = true
@@ -21,8 +21,8 @@ export class FocusControl {
 		this.camera = camera
 		this.focusObject = focusObject
 
-		window['camera'] = camera
-		window['focusObject'] = focusObject
+		// window['camera'] = camera
+		// window['focusObject'] = focusObject
 	}
 
 	private onZoom = (ev: WheelEvent) => {
@@ -43,15 +43,8 @@ export class FocusControl {
 
 	private onRotate = (startX: number, startY: number, endX: number, endY: number) => {
 		const { camera, focusObject } = this
-		const cameraDir = new Vector3()
-		camera.getWorldDirection(cameraDir)
-		const d = new Vector3()
-			.subVectors(camera.position, focusObject.position)
-			.projectOnVector(cameraDir)
-			.length()
-		const { near: n, far: f } = camera
 
-		const depth = (f + n - (2 * n * f) / d) / (f - n)
+		const depth = getBufferDepth(camera, focusObject)
 
 		const start = screen2world(new Vector2(startX, startY), camera, depth)
 		const end = screen2world(new Vector2(endX, endY), camera, depth)
@@ -67,15 +60,8 @@ export class FocusControl {
 
 	private onPanning = (startX: number, startY: number, endX: number, endY: number) => {
 		const { camera, focusObject } = this
-		const cameraDir = new Vector3()
-		camera.getWorldDirection(cameraDir)
-		const d = new Vector3()
-			.subVectors(camera.position, focusObject.position)
-			.projectOnVector(cameraDir)
-			.length()
-		const { near: n, far: f } = camera
 
-		const depth = (f + n - (2 * n * f) / d) / (f - n)
+		const depth = getBufferDepth(camera, focusObject)
 
 		const start = screen2world(new Vector2(startX, startY), camera, depth)
 		const end = screen2world(new Vector2(endX, endY), camera, depth)
@@ -110,7 +96,7 @@ export class FocusControl {
 		else if (ev.button === 2) this.canPan = true
 	}
 
-	private onMouseUp = (ev: MouseEvent) => {
+	private onMouseUp = () => {
 		this.canPan = false
 		this.canRotate = false
 	}
