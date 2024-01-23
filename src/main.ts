@@ -26,7 +26,7 @@ function init() {
     camera.position.set(50, 50, 50)
     camera.updateProjectionMatrix()
 
-    const currentCamera = camera
+    const currentCamera = camera0
 
     const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(),
