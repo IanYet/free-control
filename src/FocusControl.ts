@@ -1,121 +1,158 @@
-import { Object3D, PerspectiveCamera, Vector2, Vector3 } from 'three'
+import { Object3D, PerspectiveCamera, Spherical, Vector2, Vector3 } from 'three'
 import { getBufferDepth, screen2world } from './utils'
 
 export class FocusControl {
-	enabled: boolean = true
-	enableZoom: boolean = true
-	enableRotate: boolean = true
-	enablePan: boolean = true
+    enabled: boolean = true
+    enableZoom: boolean = true
+    enableRotate: boolean = true
+    enablePan: boolean = true
 
-	zoomSpeed: number = 1
-	rotateSpeed: number = 1
-	panSpeed: number = 1
+    zoomSpeed: number = 1
+    rotateSpeed: number = 1
+    panSpeed: number = 1
 
-	private camera: PerspectiveCamera
-	private focusObject: Object3D
+    maxPolarAngel: number = Math.PI
+    minPolarAngel: number = 0
 
-	private canRotate: boolean = false
-	private canPan: boolean = false
+    private camera: PerspectiveCamera
+    private focusObject: Object3D
 
-	constructor(camera: PerspectiveCamera, focusObject: Object3D) {
-		this.camera = camera
-		this.focusObject = focusObject
+    private canRotate: boolean = false
+    private canPan: boolean = false
 
-		// window['camera'] = camera
-		// window['focusObject'] = focusObject
-	}
+    constructor(camera: PerspectiveCamera, focusObject: Object3D) {
+        this.camera = camera
+        this.focusObject = focusObject
 
-	private onZoom = (ev: WheelEvent) => {
-		if (!this.enabled || !this.enableZoom) return
+        window['camera'] = camera
+        window['focusObject'] = focusObject
+    }
 
-		const camera = this.camera
-		const delta = ev.deltaY
+    private onZoom = (ev: WheelEvent) => {
+        if (!this.enabled || !this.enableZoom) return
 
-		const pos = screen2world(new Vector2(ev.offsetX, ev.offsetY), camera)
+        const camera = this.camera
+        const delta = ev.deltaY
 
-		const dir = new Vector3().subVectors(pos, camera.position).normalize()
+        const pos = screen2world(new Vector2(ev.offsetX, ev.offsetY), camera)
 
-		const zoomScalar = this.zoomSpeed * -0.01 * delta
+        const dir = new Vector3().subVectors(pos, camera.position).normalize()
 
-		camera.position.add(dir.multiplyScalar(zoomScalar))
-		// camera.lookAt()
-	}
+        const zoomScalar = this.zoomSpeed * -0.01 * delta
 
-	private onRotate = (startX: number, startY: number, endX: number, endY: number) => {
-		const { camera, focusObject } = this
+        camera.position.add(dir.multiplyScalar(zoomScalar))
+    }
 
-		const depth = getBufferDepth(camera, focusObject)
+    private onRotate = (startX: number, startY: number, endX: number, endY: number) => {
+        const { camera, focusObject } = this
 
-		const start = screen2world(new Vector2(startX, startY), camera, depth)
-		const end = screen2world(new Vector2(endX, endY), camera, depth)
+        const depth = getBufferDepth(camera, focusObject)
 
-		const radius = camera.position.distanceTo(focusObject.position)
+        const start = screen2world(new Vector2(startX, startY), camera, depth).sub(
+            focusObject.position
+        )
+        const end = screen2world(new Vector2(endX, endY), camera, depth).sub(focusObject.position)
 
-		const dir = new Vector3().subVectors(start, end)
-		const tarPos = camera.position.clone().add(dir).normalize().multiplyScalar(radius)
+        const radius = camera.position.distanceTo(focusObject.position)
 
-		camera.position.copy(tarPos)
-		camera.lookAt(focusObject.position)
-	}
+        // const lookAtPosition = screen2world(new Vector2(0, 0), camera, (depth + 1) / 2 - 1).sub(
+        //     focusObject.position
+        // )
+        // const rotateAngel = start.angleTo(end)
+        // const rotateAxis = new Vector3().crossVectors(end, start).normalize()
+        // console.log(rotateAngel, rotateAxis)
+        // const lookAtPosition1 = lookAtPosition
+        //     .clone()
+        //     .applyAxisAngle(rotateAxis, rotateAngel)
+        //     .add(focusObject.position)
 
-	private onPanning = (startX: number, startY: number, endX: number, endY: number) => {
-		const { camera, focusObject } = this
+        // console.log(lookAtPosition, lookAtPosition1)
+        const dir = new Vector3().subVectors(start, end)
+        const tarPos = camera.position
+            .clone()
+            .sub(focusObject.position)
+            .add(dir)
+            .normalize()
+            .multiplyScalar(radius)
 
-		const depth = getBufferDepth(camera, focusObject)
+        camera.position.copy(tarPos.add(focusObject.position))
+        camera.lookAt(focusObject.position)
+    }
 
-		const start = screen2world(new Vector2(startX, startY), camera, depth)
-		const end = screen2world(new Vector2(endX, endY), camera, depth)
+    private onPanning = (startX: number, startY: number, endX: number, endY: number) => {
+        const { camera, focusObject } = this
 
-		const panningDir = new Vector3().subVectors(start, end)
+        const depth = getBufferDepth(camera, focusObject)
 
-		camera.position.add(panningDir.multiplyScalar(this.panSpeed))
-	}
+        const start = screen2world(new Vector2(startX, startY), camera, depth)
+        const end = screen2world(new Vector2(endX, endY), camera, depth)
 
-	private onMove = (ev: MouseEvent) => {
-		if (!this.enabled) return
+        const panningDir = new Vector3().subVectors(start, end)
 
-		if (this.enablePan && this.canPan) {
-			this.onPanning(
-				ev.offsetX,
-				ev.offsetY,
-				ev.offsetX + ev.movementX,
-				ev.offsetY + ev.movementY
-			)
-		} else if (this.enableRotate && this.canRotate) {
-			this.onRotate(
-				ev.offsetX,
-				ev.offsetY,
-				ev.offsetX + ev.movementX,
-				ev.offsetY + ev.movementY
-			)
-		}
-	}
+        camera.position.add(panningDir.multiplyScalar(this.panSpeed))
+    }
 
-	private onMouseDown = (ev: MouseEvent) => {
-		if (ev.button === 0) this.canRotate = true
-		else if (ev.button === 2) this.canPan = true
-	}
+    private onMove = (ev: MouseEvent) => {
+        if (!this.enabled) return
 
-	private onMouseUp = () => {
-		this.canPan = false
-		this.canRotate = false
-	}
+        if (this.enablePan && this.canPan) {
+            this.onPanning(
+                ev.offsetX,
+                ev.offsetY,
+                ev.offsetX + ev.movementX,
+                ev.offsetY + ev.movementY
+            )
+        } else if (this.enableRotate && this.canRotate) {
+            this.onRotate(
+                ev.offsetX,
+                ev.offsetY,
+                ev.offsetX + ev.movementX,
+                ev.offsetY + ev.movementY
+            )
+        }
+    }
 
-	private preventDefaultMenu = (ev: MouseEvent) => ev.preventDefault()
+    private onMouseDown = (ev: MouseEvent) => {
+        if (ev.button === 0) this.canRotate = true
+        else if (ev.button === 2) this.canPan = true
+    }
 
-	update() {
-		window.addEventListener('wheel', this.onZoom)
-		window.addEventListener('mousedown', this.onMouseDown)
-		window.addEventListener('mousemove', this.onMove)
-		window.addEventListener('mouseup', this.onMouseUp)
-		window.addEventListener('contextmenu', this.preventDefaultMenu)
-	}
+    private onMouseUp = () => {
+        this.canPan = false
+        this.canRotate = false
+    }
 
-	dispose() {
-		window.removeEventListener('wheel', this.onZoom)
-		window.removeEventListener('mousedown', this.onMouseDown)
-		window.removeEventListener('mousemove', this.onMove)
-		window.removeEventListener('mouseup', this.onMouseUp)
-		window.removeEventListener('contextmenu', this.preventDefaultMenu)
-	}
+    private preventDefaultMenu = (ev: MouseEvent) => ev.preventDefault()
+
+    private onTest = (ev: MouseEvent) => {
+        const { camera, focusObject } = this
+        const { offsetX, offsetY } = ev
+        const depth = getBufferDepth(camera, focusObject)
+        const pos0 = screen2world(new Vector2(offsetX, offsetY), camera, depth)
+        const pos1 = new Vector3(0, 0, depth).applyMatrix4(camera.projectionMatrixInverse)
+        const pos2 = focusObject.position.clone().applyMatrix4(camera.matrixWorldInverse)
+
+        // console.log(pos0)
+        // console.log(pos1, pos2)
+    }
+
+    update() {
+        window.addEventListener('wheel', this.onZoom)
+        window.addEventListener('mousedown', this.onMouseDown)
+        window.addEventListener('mousemove', this.onMove)
+        window.addEventListener('mouseup', this.onMouseUp)
+        window.addEventListener('contextmenu', this.preventDefaultMenu)
+
+        window.addEventListener('click', this.onTest)
+    }
+
+    dispose() {
+        window.removeEventListener('wheel', this.onZoom)
+        window.removeEventListener('mousedown', this.onMouseDown)
+        window.removeEventListener('mousemove', this.onMove)
+        window.removeEventListener('mouseup', this.onMouseUp)
+        window.removeEventListener('contextmenu', this.preventDefaultMenu)
+
+        // window.removeEventListener("click", this.onTest);
+    }
 }
