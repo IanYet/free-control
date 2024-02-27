@@ -76,9 +76,11 @@ function init() {
 }
 
 function onWindowResize() {
-    const { camera, renderer } = threeContext as ThreeContext
+    const { camera, camera0, renderer } = threeContext as ThreeContext
     camera.aspect = window.innerWidth / window.innerHeight
     camera.updateProjectionMatrix()
+    camera0.aspect = window.innerWidth / window.innerHeight
+    camera0.updateProjectionMatrix()
 
     renderer.setSize(window.innerWidth, window.innerHeight)
 }
